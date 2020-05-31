@@ -814,6 +814,85 @@ if [ ! -f "$WG_CONFIG" ]; then
   # Running Install Unbound
   install-unbound
 
+function install-firewall() {
+    if [ "$DISTRO" == "debian" ]; then
+      apt-get update
+      apt-get install haveged fail2ban ufw -y
+    fi
+    if [ "$DISTRO" == "ubuntu" ]; then
+      apt-get update
+      apt-get install haveged fail2ban ufw -y
+    fi
+    if [ "$DISTRO" == "raspbian" ]; then
+      apt-get update
+      apt-get install haveged fail2ban ufw -y
+    fi
+    if [ "$DISTRO" == "arch" ]; then
+      pacman -Syu
+      pacman -Syu --noconfirm haveged fail2ban
+    fi
+    if [ "$DISTRO" == "fedora" ]; then
+      dnf update -y
+      dnf install haveged fail2ban -y
+    fi
+    if [ "$DISTRO" == "centos" ]; then
+      yum update -y
+      yum install haveged fail2ban -y
+    fi
+    if [ "$DISTRO" == "rhel" ]; then
+      yum update -y
+      yum install haveged fail2ban -y
+    fi
+    if pgrep systemd-journal; then
+      systemctl enable fail2ban
+      systemctl restart fail2ban
+    else
+      service fail2ban enable
+      service fail2ban restart
+    fi
+      sed -i "s|# IPV6=yes;|IPV6=yes;|" /etc/default/ufw
+      ufw default deny incoming
+      ufw default allow outgoing
+}
+
+# install the basic firewall
+install-firewall
+
+function secure-ssh() {
+  if [ ! -f "/root/.ssh/authorized_keys" ]; then
+      chmod 600 /root/.ssh && chmod 700 /root/.ssh/authorized_keys
+      sed -i 's|#PasswordAuthentication yes|PasswordAuthentication no|' /etc/ssh/sshd_config
+      sed -i 's|#PermitEmptyPasswords no|PermitEmptyPasswords no|' /etc/ssh/sshd_config
+      sed -i 's|AllowTcpForwarding yes|AllowTcpForwarding no|' /etc/ssh/sshd_config
+      sed -i 's|X11Forwarding yes|X11Forwarding no|' /etc/ssh/sshd_config
+      sed -i 's|#LogLevel INFO|LogLevel VERBOSE|' /etc/ssh/sshd_config
+      sed -i 's|#Port 22|Port 22|' /etc/ssh/sshd_config
+      sed -i 's|#PubkeyAuthentication yes|PubkeyAuthentication yes|' /etc/ssh/sshd_config
+      sed -i 's|#ChallengeResponseAuthentication no|ChallengeResponseAuthentication yes|' /etc/ssh/sshd_config
+    if pgrep systemd-journal; then
+      systemctl enable sshd
+      systemctl restart sshd
+    else
+      service ssh enable
+      service ssh restart
+    fi
+      ufw allow 22/tcp
+      ufw enable
+  fi
+}
+
+# Secure SSH
+secure-ssh
+
+function secure-wireguard() {
+  if [ ! -f "/etc/wireguard/wg0.conf" ]; then
+      ufw allow $SERVER_PORT/udp
+  fi
+}
+
+# Secure wireguard
+secure-wireguard
+
   # WireGuard Set Config
   function wireguard-setconf() {
     SERVER_PRIVKEY=$(wg genkey)
